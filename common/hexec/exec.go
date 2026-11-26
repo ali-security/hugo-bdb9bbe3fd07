@@ -316,6 +316,8 @@ func (e *Exec) nodeReadRoots(scriptPath string) []string {
 // CheckReadPath fails if filename resolves outside the allowRead roots.
 // Used by in-process tools (e.g. the Sass transpilers) that read files on their own,
 // so they get the same boundary as the Node.js tools.
+var errReadPathNotExist = errors.New("read path does not exist")
+
 func (e *Exec) CheckReadPath(filename string) error {
 	_, err := e.readPathChecks.GetOrCreate(filename, func() (bool, error) {
 		roots := e.nodeReadRoots("")
@@ -324,6 +326,9 @@ func (e *Exec) CheckReadPath(filename string) error {
 		}
 		target, err := filepath.EvalSymlinks(filename)
 		if err != nil {
+			if os.IsNotExist(err) {
+				return false, errReadPathNotExist
+			}
 			return false, err
 		}
 		if target, err = filepath.Abs(target); err != nil {
@@ -334,6 +339,9 @@ func (e *Exec) CheckReadPath(filename string) error {
 		}
 		return true, nil
 	})
+	if err == errReadPathNotExist {
+		return nil
+	}
 	return err
 }
 
